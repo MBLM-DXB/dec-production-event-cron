@@ -1,4 +1,4 @@
-name = "dwtc-staging-event-cron"
+name = "dec-production-event-cron"
 main = "src/index.ts"
 compatibility_date = "2024-01-07"
 
