@@ -28,6 +28,17 @@ export interface ExportedHandler {
 
 export default {
   async scheduled(event, env, ctx) {
+    const LOCK_KEY = "sync_lock";
+    const LOCK_TTL = 600;
+
+    const existingLock = await env.CRON_LOCK.get(LOCK_KEY);
+    if (existingLock) {
+      console.log("⏸️ Sync already in progress, skipping this run.");
+      return;
+    }
+    await env.CRON_LOCK.put(LOCK_KEY, "locked", { expirationTtl: LOCK_TTL });
+
+    try {
     console.log("🔄 Starting CRM to Umbraco sync...");
 
     const crmResponse = await fetchCrmEvents(env);
@@ -43,8 +54,8 @@ export default {
       );
       return;
     }
-    const filteredCrmEvents = filterEventsByVenue(crmResponse.data, "DWTC");
-    console.log(`📊 Found ${filteredCrmEvents.length} DWTC events in CRM`);
+    const filteredCrmEvents = filterEventsByVenue(crmResponse.data, "DEC");
+    console.log(`📊 Found ${filteredCrmEvents.length} DEC events in CRM`);
 
     const { toUpdate } = compareEvents(
       filteredCrmEvents,
@@ -76,21 +87,6 @@ export default {
 
     if (toUpdate.length === 0) {
       console.log("✅ All events are up to date - no sync needed!");
-
-      try {
-        await sendSyncNotificationEmail(env, {
-          updatedEvents,
-          createdEvents: [],
-          failedEvents,
-          syncDate: new Date().toLocaleString("en-US", {
-            timeZone: "Asia/Dubai",
-            dateStyle: "full",
-            timeStyle: "long",
-          }),
-        });
-      } catch (emailError) {
-        console.error("⚠️ Email notification failed");
-      }
       return;
     }
 
@@ -195,19 +191,21 @@ export default {
 
     console.log("✅ Sync completed successfully!");
 
-    try {
-      await sendSyncNotificationEmail(env, {
-        updatedEvents,
-        createdEvents: [],
-        failedEvents,
-        syncDate: new Date().toLocaleString("en-US", {
-          timeZone: "Asia/Dubai",
-          dateStyle: "full",
-          timeStyle: "long",
-        }),
-      });
-    } catch (emailError) {
-      console.error("⚠️ Sync completed but email notification failed");
+    if (updatedEvents.length > 0 || failedEvents.length > 0) {
+      try {
+        await sendSyncNotificationEmail(env, {
+          updatedEvents,
+          createdEvents: [],
+          failedEvents,
+          syncDate: new Date().toLocaleString("en-US", {
+            timeZone: "Asia/Dubai",
+            dateStyle: "full",
+            timeStyle: "long",
+          }),
+        });
+      } catch (emailError) {
+        console.error("⚠️ Sync completed but email notification failed");
+      }
     }
 
     if (processedEventIds.length > 0) {
@@ -227,6 +225,9 @@ export default {
       } catch (webhookError) {
         console.error("⚠️ Failed to trigger Cloudflare build webhook");
       }
+    }
+    } finally {
+      await env.CRON_LOCK.delete(LOCK_KEY);
     }
   },
 
