@@ -3,7 +3,6 @@ import {
   fetchUmbracoEvents,
   fetchEventById,
   updateUmbracoEvent,
-  publishUmbracoEvent,
 } from "./services/umbraco.service";
 import { sendSyncNotificationEmail } from "./services/mailgun.service";
 import {
@@ -170,24 +169,24 @@ export default {
       }
     }
 
-    for (const contentId of processedEventIds) {
-      const publishResult = await publishUmbracoEvent(env, contentId);
+    // for (const contentId of processedEventIds) {
+    //   const publishResult = await publishUmbracoEvent(env, contentId);
 
-      if (publishResult.success) {
-        const eventInfo = updatedEvents.find(
-          (e) =>
-            e.eventId.toString() === contentId ||
-            contentId.includes(e.eventId.toString())
-        );
-        const eventName = eventInfo?.title || contentId;
-        console.log(`🚀 Published: ${eventName}`);
-      } else {
-        console.error(
-          `❌ Failed to publish event ${contentId}:`,
-          publishResult.error
-        );
-      }
-    }
+    //   if (publishResult.success) {
+    //     const eventInfo = updatedEvents.find(
+    //       (e) =>
+    //         e.eventId.toString() === contentId ||
+    //         contentId.includes(e.eventId.toString())
+    //     );
+    //     const eventName = eventInfo?.title || contentId;
+    //     console.log(`🚀 Published: ${eventName}`);
+    //   } else {
+    //     console.error(
+    //       `❌ Failed to publish event ${contentId}:`,
+    //       publishResult.error
+    //     );
+    //   }
+    // }
 
     console.log("✅ Sync completed successfully!");
 
