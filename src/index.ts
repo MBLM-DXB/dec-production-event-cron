@@ -3,6 +3,7 @@ import {
   fetchUmbracoEvents,
   fetchEventById,
   updateUmbracoEvent,
+  publishUmbracoEvent,
 } from "./services/umbraco.service";
 import { sendSyncNotificationEmail } from "./services/mailgun.service";
 import {
@@ -142,6 +143,7 @@ export default {
       if (updateResult.success) {
         console.log(`✏️ Updated: ${crmEvent.title} (ID: ${crmEvent.eventId})`);
         processedEventIds.push(umbracoEvent.id);
+        await publishUmbracoEvent(env, umbracoEvent.id);
         updatedEvents.push({
           title: crmEvent.title,
           eventId: crmEvent.eventId,
