@@ -9,6 +9,8 @@ interface EventDetails {
   location?: string | null;
   eventType?: string;
   eventOrganiser?: string;
+  titleChanged?: boolean;
+  previousTitle?: string;
 }
 
 interface SyncSummary {
@@ -39,9 +41,9 @@ function generateExcelAttachment(summary: SyncSummary): Uint8Array {
 
   if (summary.updatedEvents.length > 0) {
     summaryData.push([""], ["UPDATED EVENTS"]);
-    summaryData.push(["Event Name"]);
+    summaryData.push(["Event Name", "Title Changed"]);
     summary.updatedEvents.forEach((e) => {
-      summaryData.push([e.title]);
+      summaryData.push([e.title, e.titleChanged ? `Yes (was: ${e.previousTitle})` : "No"]);
     });
   }
 
@@ -69,6 +71,8 @@ function generateExcelAttachment(summary: SyncSummary): Uint8Array {
         "Location",
         "Event Type",
         "Organiser",
+        "Title Changed",
+        "Previous Title",
       ],
       ...summary.updatedEvents.map((e) => [
         e.title,
@@ -78,6 +82,8 @@ function generateExcelAttachment(summary: SyncSummary): Uint8Array {
         e.location || "N/A",
         e.eventType || "N/A",
         e.eventOrganiser || "N/A",
+        e.titleChanged ? "Yes" : "No",
+        e.previousTitle || "",
       ]),
     ];
     const updatedSheet = XLSX.utils.aoa_to_sheet(updatedData);
