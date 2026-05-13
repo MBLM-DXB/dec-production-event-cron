@@ -147,6 +147,9 @@ export async function updateUmbracoEvent(
       }
     );
     if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("❌ Update payload:", JSON.stringify({ parentId: env.UMBRACO_PARENT_ID, ...eventData }));
+      console.error("❌ Update error response:", errorBody);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
