@@ -155,8 +155,8 @@ export default {
           location: crmEvent.location,
           eventType: crmEvent.eventType,
           eventOrganiser: crmEvent.eventOrganiser,
-          titleChanged: umbracoEvent.name !== crmEvent.title,
-          previousTitle: umbracoEvent.name !== crmEvent.title ? umbracoEvent.name : undefined,
+          titleChanged: umbracoEvent.title !== crmEvent.title,
+          previousTitle: umbracoEvent.title !== crmEvent.title ? umbracoEvent.title : undefined,
         });
       } else {
         console.error(
