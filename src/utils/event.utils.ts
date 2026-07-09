@@ -663,6 +663,9 @@ export function mapCrmEventToUmbraco(
         ],
       },
     }),
+    eventDescription: {
+      $invariant: crmEvent.pageContent || "",
+    },
     eventId: {
       $invariant: crmEvent.eventId.toString(),
     },
@@ -758,6 +761,9 @@ export function mapCrmEventForUpdate(
         ],
       },
     }),
+    eventDescription: {
+      $invariant: crmEvent.pageContent || "",
+    },
     eventId: {
       $invariant: crmEvent.eventId.toString(),
     },
