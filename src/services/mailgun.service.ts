@@ -13,15 +13,28 @@ interface EventDetails {
   previousTitle?: string;
 }
 
+interface CancelledLiveEvent {
+  title: string;
+  eventId: number;
+  startDate?: string;
+  endDate?: string;
+  location?: string | null;
+  eventType?: string;
+  eventOrganiser?: string;
+  status?: string;
+}
+
 interface SyncSummary {
   updatedEvents: EventDetails[];
   createdEvents: EventDetails[];
   failedEvents: Array<EventDetails & { error: string }>;
+  cancelledLiveEvents?: CancelledLiveEvent[];
   syncDate: string;
 }
 
 function generateExcelAttachment(summary: SyncSummary): Uint8Array {
   const workbook = XLSX.utils.book_new();
+  const cancelledLiveEvents = summary.cancelledLiveEvents || [];
 
   const summaryData = [
     ["CRM TO UMBRACO SYNC REPORT"],
@@ -32,6 +45,7 @@ function generateExcelAttachment(summary: SyncSummary): Uint8Array {
     ["Metric", "Count"],
     ["Total Events Updated", summary.updatedEvents.length],
     ["Total Failed Events", summary.failedEvents.length],
+    ["Cancelled Events Still Live", cancelledLiveEvents.length],
     [""],
     ["STATUS"],
     summary.failedEvents.length === 0
@@ -52,6 +66,14 @@ function generateExcelAttachment(summary: SyncSummary): Uint8Array {
     summaryData.push(["Event Name", "Event ID", "Error"]);
     summary.failedEvents.forEach((e) => {
       summaryData.push([e.title, e.eventId, e.error]);
+    });
+  }
+
+  if (cancelledLiveEvents.length > 0) {
+    summaryData.push([""], ["CANCELLED EVENTS STILL LIVE — ACTION NEEDED"]);
+    summaryData.push(["Event Name", "Event ID", "CRM Status"]);
+    cancelledLiveEvents.forEach((e) => {
+      summaryData.push([e.title, e.eventId, e.status || "Cancelled"]);
     });
   }
 
@@ -117,6 +139,33 @@ function generateExcelAttachment(summary: SyncSummary): Uint8Array {
     XLSX.utils.book_append_sheet(workbook, failedSheet, "Failed Events");
   }
 
+  if (cancelledLiveEvents.length > 0) {
+    const cancelledData = [
+      [
+        "Event Name",
+        "Event ID",
+        "Start Date",
+        "End Date",
+        "Location",
+        "Event Type",
+        "Organiser",
+        "CRM Status",
+      ],
+      ...cancelledLiveEvents.map((e) => [
+        e.title,
+        e.eventId,
+        e.startDate || "N/A",
+        e.endDate || "N/A",
+        e.location || "N/A",
+        e.eventType || "N/A",
+        e.eventOrganiser || "N/A",
+        e.status || "Cancelled",
+      ]),
+    ];
+    const cancelledSheet = XLSX.utils.aoa_to_sheet(cancelledData);
+    XLSX.utils.book_append_sheet(workbook, cancelledSheet, "Cancelled - Still Live");
+  }
+
   // Write to buffer
   const excelBuffer = XLSX.write(workbook, {
     type: "buffer",
@@ -144,9 +193,12 @@ export async function sendSyncNotificationEmail(
     const formData = new FormData();
     formData.append("from", env.NOTIFICATION_FROM_EMAIL);
     formData.append("to", env.NOTIFICATION_EMAIL);
+    const cancelledLiveCount = (summary.cancelledLiveEvents || []).length;
+    const subjectCancelledSuffix =
+      cancelledLiveCount > 0 ? ` - ⚠ ${cancelledLiveCount} Cancelled Event(s) Still Live` : "";
     formData.append(
       "subject",
-      `[DEC Live] CRM to Umbraco Sync Report - ${summary.updatedEvents.length} Events Updated`,
+      `[DEC Live] CRM to Umbraco Sync Report - ${summary.updatedEvents.length} Events Updated${subjectCancelledSuffix}`,
     );
     formData.append("html", emailBody);
     formData.append(
@@ -239,6 +291,35 @@ function buildEmailBody(summary: SyncSummary): string {
         </tr>`;
   }
 
+  const cancelledLiveEvents = summary.cancelledLiveEvents || [];
+  if (cancelledLiveEvents.length > 0) {
+    eventRows += `
+        <tr>
+          <td style="padding:15px 25px 5px;">
+            <p style="margin:0 0 8px;font-family:Verdana,Helvetica,Arial,sans-serif;font-size:13px;font-weight:bold;color:#dc3545;">
+              &#9888; Action Needed: Cancelled Events Still Live on Website (${cancelledLiveEvents.length})
+            </p>
+            <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:12px;color:#55575d;">
+              These events are marked as cancelled in the CRM but were left untouched on the live website. Please review and remove/unpublish manually if needed.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 25px 15px;">
+            <ul style="margin:0;padding-left:20px;list-style-type:disc;">`;
+    cancelledLiveEvents.forEach((event) => {
+      eventRows += `
+              <li style="font-family:Arial,sans-serif;font-size:13px;color:#dc3545;line-height:2;">
+                <b>${event.title}</b> &mdash; ID: ${event.eventId}<br/>
+                <span style="font-size:12px;">CRM Status: ${event.status || "Cancelled"}</span>
+              </li>`;
+    });
+    eventRows += `
+            </ul>
+          </td>
+        </tr>`;
+  }
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -294,6 +375,7 @@ function buildEmailBody(summary: SyncSummary): string {
         <td style="padding:0 25px 20px;">
           <ul style="margin:0;padding-left:20px;list-style-type:disc;">
             <li style="font-family:Arial,sans-serif;font-size:13px;color:#000000;line-height:2;"><b>Events Updated:</b> ${summary.updatedEvents.length}</li>
+            ${cancelledLiveEvents.length > 0 ? `<li style="font-family:Arial,sans-serif;font-size:13px;color:#dc3545;line-height:2;"><b>Cancelled Events Still Live:</b> ${cancelledLiveEvents.length}</li>` : ""}
             <li style="font-family:Arial,sans-serif;font-size:13px;color:${statusColor};line-height:2;"><b>Status:</b> ${statusText}</li>
           </ul>
         </td>
